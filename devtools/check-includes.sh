@@ -97,7 +97,7 @@ shift $(($OPTIND - 1))
 
 include_dir=${1:-build/include}
 
-: ${PEDANTIC_CFLAGS=-std=c99 -pedantic -Wall -Wextra -Werror}
+: ${PEDANTIC_CFLAGS=-std=c99 -pedantic -Wall -Wextra -Werror -Wno-implicit-fallthrough}
 : ${PEDANTIC_CXXFLAGS=}
 : ${PEDANTIC_CPPFLAGS=-D_XOPEN_SOURCE=600}
 : ${CC:=cc}

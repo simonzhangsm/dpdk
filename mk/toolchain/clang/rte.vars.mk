@@ -70,7 +70,7 @@ WERROR_FLAGS += -Wformat-nonliteral -Wformat-security
 WERROR_FLAGS += -Wundef -Wwrite-strings
 
 ifeq ($(RTE_DEVEL_BUILD),y)
-WERROR_FLAGS += -Werror
+WERROR_FLAGS += -Werror -Wno-implicit-fallthrough
 endif
 
 # process cpu flags

@@ -76,7 +76,7 @@ WERROR_FLAGS += -diag-disable 188
 WERROR_FLAGS += -diag-disable 11074 -diag-disable 11076
 
 ifeq ($(RTE_DEVEL_BUILD),y)
-WERROR_FLAGS += -Werror-all
+WERROR_FLAGS += -Werror -Wno-implicit-fallthrough
 endif
 
 # process cpu flags
