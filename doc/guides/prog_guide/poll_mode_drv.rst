@@ -156,8 +156,8 @@ concurrently on the same tx queue without SW lock. This PMD feature found in som
 
 See `Hardware Offload`_ for ``DEV_TX_OFFLOAD_MT_LOCKFREE`` capability probing details.
 
-Device Identification and Configuration
----------------------------------------
+Device Identification, Ownership and Configuration
+--------------------------------------------------
 
 Device Identification
 ~~~~~~~~~~~~~~~~~~~~~
@@ -170,6 +170,16 @@ Based on their PCI identifier, NIC ports are assigned two other identifiers:
 
 *   A port name used to designate the port in console messages, for administration or debugging purposes.
     For ease of use, the port name includes the port index.
+
+Port Ownership
+~~~~~~~~~~~~~~
+The Ethernet devices ports can be owned by a single DPDK entity (application, library, PMD, process, etc).
+The ownership mechanism is controlled by ethdev APIs and allows to set/remove/get a port owner by DPDK entities.
+Allowing this should prevent any multiple management of Ethernet port by different entities.
+
+.. note::
+
+    It is the DPDK entity responsibility to set the port owner before using it and to manage the port usage synchronization between different threads or processes.
 
 Device Configuration
 ~~~~~~~~~~~~~~~~~~~~
@@ -581,8 +591,8 @@ thread safety all these operations should be called from the same thread.
 For example when PF is reset, the PF sends a message to notify VFs of
 this event and also trigger an interrupt to VFs. Then in the interrupt
 service routine the VFs detects this notification message and calls
-_rte_eth_dev_callback_process(dev, RTE_ETH_EVENT_INTR_RESET, NULL,
-NULL). This means that a PF reset triggers an RTE_ETH_EVENT_INTR_RESET
+_rte_eth_dev_callback_process(dev, RTE_ETH_EVENT_INTR_RESET, NULL).
+This means that a PF reset triggers an RTE_ETH_EVENT_INTR_RESET
 event within VFs. The function _rte_eth_dev_callback_process() will
 call the registered callback function. The callback function can trigger
 the application to handle all operations the VF reset requires including

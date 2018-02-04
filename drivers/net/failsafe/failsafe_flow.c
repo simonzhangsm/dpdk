@@ -1,34 +1,6 @@
-/*-
- *   BSD LICENSE
- *
- *   Copyright 2017 6WIND S.A.
- *   Copyright 2017 Mellanox.
- *
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of 6WIND S.A. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+/* SPDX-License-Identifier: BSD-3-Clause
+ * Copyright 2017 6WIND S.A.
+ * Copyright 2017 Mellanox.
  */
 
 #include <sys/queue.h>
@@ -87,7 +59,7 @@ fs_flow_validate(struct rte_eth_dev *dev,
 		DEBUG("Calling rte_flow_validate on sub_device %d", i);
 		ret = rte_flow_validate(PORT_ID(sdev),
 				attr, patterns, actions, error);
-		if (ret) {
+		if ((ret = fs_err(sdev, ret))) {
 			ERROR("Operation rte_flow_validate failed for sub_device %d"
 			      " with error %d", i, ret);
 			return ret;
@@ -111,7 +83,7 @@ fs_flow_create(struct rte_eth_dev *dev,
 	FOREACH_SUBDEV_STATE(sdev, i, dev, DEV_ACTIVE) {
 		flow->flows[i] = rte_flow_create(PORT_ID(sdev),
 				attr, patterns, actions, error);
-		if (flow->flows[i] == NULL) {
+		if (flow->flows[i] == NULL && fs_err(sdev, -rte_errno)) {
 			ERROR("Failed to create flow on sub_device %d",
 				i);
 			goto err;
@@ -150,7 +122,7 @@ fs_flow_destroy(struct rte_eth_dev *dev,
 			continue;
 		local_ret = rte_flow_destroy(PORT_ID(sdev),
 				flow->flows[i], error);
-		if (local_ret) {
+		if ((local_ret = fs_err(sdev, local_ret))) {
 			ERROR("Failed to destroy flow on sub_device %d: %d",
 					i, local_ret);
 			if (ret == 0)
@@ -175,7 +147,7 @@ fs_flow_flush(struct rte_eth_dev *dev,
 	FOREACH_SUBDEV_STATE(sdev, i, dev, DEV_ACTIVE) {
 		DEBUG("Calling rte_flow_flush on sub_device %d", i);
 		ret = rte_flow_flush(PORT_ID(sdev), error);
-		if (ret) {
+		if ((ret = fs_err(sdev, ret))) {
 			ERROR("Operation rte_flow_flush failed for sub_device %d"
 			      " with error %d", i, ret);
 			return ret;
@@ -199,8 +171,12 @@ fs_flow_query(struct rte_eth_dev *dev,
 
 	sdev = TX_SUBDEV(dev);
 	if (sdev != NULL) {
-		return rte_flow_query(PORT_ID(sdev),
-				flow->flows[SUB_ID(sdev)], type, arg, error);
+		int ret = rte_flow_query(PORT_ID(sdev),
+					 flow->flows[SUB_ID(sdev)],
+					 type, arg, error);
+
+		if ((ret = fs_err(sdev, ret)))
+			return ret;
 	}
 	WARN("No active sub_device to query about its flow");
 	return -1;
@@ -223,7 +199,7 @@ fs_flow_isolate(struct rte_eth_dev *dev,
 			WARN("flow isolation mode of sub_device %d in incoherent state.",
 				i);
 		ret = rte_flow_isolate(PORT_ID(sdev), set, error);
-		if (ret) {
+		if ((ret = fs_err(sdev, ret))) {
 			ERROR("Operation rte_flow_isolate failed for sub_device %d"
 			      " with error %d", i, ret);
 			return ret;

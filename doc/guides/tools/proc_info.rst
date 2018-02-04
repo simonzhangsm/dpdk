@@ -38,6 +38,17 @@ statistics, resetting port statistics and printing DPDK memory information.
 This application extends the original functionality that was supported by
 dump_cfg.
 
+.. note::
+
+    dpdk-procinfo should run alongside primary process with same DPDK version.
+
+.. note::
+
+   When running `dpdk-procinfo`` with shared library mode, it is required to
+   pass the same NIC PMD libraries as used for the primary application. Any
+   mismatch in PMD library arguments can lead to undefined behaviour and results
+   affecting primary application too.
+
 Running the Application
 -----------------------
 The application has a number of command line options:
@@ -68,3 +79,7 @@ The xstats-reset parameter controls the resetting of extended port statistics.
 If no port mask is specified xstats are reset for all DPDK ports.
 
 **-m**: Print DPDK memory information.
+
+.. note::
+
+   Stats retrieval using ``dpdk-procinfo`` is not supported for virtual devices like PCAP and TAP.

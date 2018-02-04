@@ -1,39 +1,11 @@
-/*-
- *   BSD LICENSE
- *
- *   Copyright 2017 6WIND S.A.
- *   Copyright 2017 Mellanox.
- *
- *   Redistribution and use in source and binary forms, with or without
- *   modification, are permitted provided that the following conditions
- *   are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- *     * Neither the name of 6WIND S.A. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+/* SPDX-License-Identifier: BSD-3-Clause
+ * Copyright 2017 6WIND S.A.
+ * Copyright 2017 Mellanox.
  */
 
 #include <rte_alarm.h>
 #include <rte_malloc.h>
-#include <rte_ethdev.h>
+#include <rte_ethdev_driver.h>
 #include <rte_ethdev_vdev.h>
 #include <rte_devargs.h>
 #include <rte_kvargs.h>
@@ -46,7 +18,7 @@ static const struct rte_eth_link eth_link = {
 	.link_speed = ETH_SPEED_NUM_10G,
 	.link_duplex = ETH_LINK_FULL_DUPLEX,
 	.link_status = ETH_LINK_UP,
-	.link_autoneg = ETH_LINK_SPEED_AUTONEG,
+	.link_autoneg = ETH_LINK_AUTONEG,
 };
 
 static int
@@ -55,6 +27,7 @@ fs_sub_device_alloc(struct rte_eth_dev *dev,
 {
 	uint8_t nb_subs;
 	int ret;
+	int i;
 
 	ret = failsafe_args_count_subdevice(dev, params);
 	if (ret)
@@ -72,6 +45,10 @@ fs_sub_device_alloc(struct rte_eth_dev *dev,
 		ERROR("Could not allocate sub_devices");
 		return -ENOMEM;
 	}
+	/* Initiate static sub devices linked list. */
+	for (i = 1; i < nb_subs; i++)
+		PRIV(dev)->subs[i - 1].next = PRIV(dev)->subs + i;
+	PRIV(dev)->subs[i - 1].next = PRIV(dev)->subs;
 	return 0;
 }
 
@@ -191,6 +168,13 @@ fs_eth_dev_create(struct rte_vdev_device *vdev)
 	ret = failsafe_args_parse(dev, params);
 	if (ret)
 		goto free_subs;
+	ret = rte_eth_dev_owner_new(&priv->my_owner.id);
+	if (ret) {
+		ERROR("Failed to get unique owner identifier");
+		goto free_args;
+	}
+	snprintf(priv->my_owner.name, sizeof(priv->my_owner.name),
+		 FAILSAFE_OWNER_NAME);
 	ret = failsafe_eal_init(dev);
 	if (ret)
 		goto free_args;
@@ -239,6 +223,10 @@ fs_eth_dev_create(struct rte_vdev_device *vdev)
 		mac->addr_bytes[2], mac->addr_bytes[3],
 		mac->addr_bytes[4], mac->addr_bytes[5]);
 	dev->data->dev_flags |= RTE_ETH_DEV_INTR_LSC;
+	PRIV(dev)->intr_handle = (struct rte_intr_handle){
+		.fd = -1,
+		.type = RTE_INTR_HANDLE_EXT,
+	};
 	return 0;
 free_args:
 	failsafe_args_free(dev);
